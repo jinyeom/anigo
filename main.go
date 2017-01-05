@@ -173,6 +173,7 @@ func main() {
 	depthPtr := flag.Int("depth", 12, "number of hidden layers")
 	sizePtr := flag.Int("size", 24, "number of neurons in a hidden layer")
 	patternPtr := flag.Bool("pattern", false, "true if exporting a patterned image")
+	densityPtr := flag.Float64("density", 1.0, "density of patterns (valid only with -pattern flag)")
 
 	flag.Parse()
 
@@ -184,6 +185,7 @@ func main() {
 	depth := *depthPtr
 	size := *sizePtr
 	pattern := *patternPtr
+	density := *densityPtr
 
 	fmt.Printf("------------+-----------------------\n")
 	fmt.Printf("File name   | %s\n", filename+".gif")
@@ -194,6 +196,9 @@ func main() {
 	fmt.Printf("Depth       | %d\n", depth)
 	fmt.Printf("Size        | %d\n", size)
 	fmt.Printf("Pattern     | %t\n", pattern)
+	if pattern {
+		fmt.Printf("Density     | %f\n", density)
+	}
 	fmt.Printf("------------+-----------------------\n")
 
 	rand.Seed(seed)
@@ -211,8 +216,8 @@ func main() {
 	drawPixel := func(pattern bool) func(frame *image.Paletted, x, y, theta int) {
 		if pattern {
 			return func(frame *image.Paletted, x, y, theta int) {
-				xs := math.Sin(float64(x)) * sharpness
-				ys := math.Cos(float64(y)) * sharpness
+				xs := math.Sin(float64(x)*density) * sharpness
+				ys := math.Cos(float64(y)*density) * sharpness
 				r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
 					math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
 				z1 := math.Cos(float64(theta) / (math.Pi * 3.0))

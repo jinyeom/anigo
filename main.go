@@ -161,7 +161,7 @@ func (c *CPPN) FeedForward(inputs []float64) []float64 {
 }
 
 func main() {
-	fmt.Printf("\x1b[38;5;197mAnigo\x1b[0m  Animated image generator\n")
+	fmt.Printf("\x1b[38;5;160mAnigo\x1b[0m  Animated image generator\n")
 	fmt.Printf("Copyright (c) 2017 by White Wolf Studio\n")
 
 	filenamePtr := flag.String("name", fmt.Sprintf("%d", time.Now().UnixNano()), "name of an exported image file")
@@ -174,6 +174,7 @@ func main() {
 	sizePtr := flag.Int("size", 24, "number of neurons in a hidden layer")
 	patternPtr := flag.Bool("pattern", false, "true if exporting a patterned image")
 	densityPtr := flag.Float64("density", 1.0, "density of patterns (valid only with -pattern flag)")
+	grayPtr := flag.Bool("gray", false, "true if exporting a black and white image")
 
 	flag.Parse()
 
@@ -186,6 +187,7 @@ func main() {
 	size := *sizePtr
 	pattern := *patternPtr
 	density := *densityPtr
+	gray := *grayPtr
 
 	fmt.Printf("------------+-----------------------\n")
 	fmt.Printf("File name   | %s\n", filename+".gif")
@@ -199,12 +201,28 @@ func main() {
 	if pattern {
 		fmt.Printf("Density     | %f\n", density)
 	}
+	fmt.Printf("Gray        | %t\n", gray)
 	fmt.Printf("------------+-----------------------\n")
 
 	rand.Seed(seed)
 
 	img := &gif.GIF{}
-	cppn := NewCPPN(&CPPNParam{5, depth, size, 3})
+
+	var param *CPPNParam
+	var colors []color.Color
+
+	if gray {
+		param = &CPPNParam{5, depth, size, 1}
+		colors = make([]color.Color, 0, 256)
+		for i := 0; i < 255; i++ {
+			colors = append(colors, color.Gray{uint8(i)})
+		}
+	} else {
+		param = &CPPNParam{5, depth, size, 3}
+		colors = palette.Plan9
+	}
+
+	cppn := NewCPPN(param)
 
 	fmt.Printf("\x1b[?25l")
 	fmt.Printf("\x1b[1mProcessing... [")
@@ -213,7 +231,25 @@ func main() {
 	}
 	fmt.Printf("]\x1b[0m\x1b[21D")
 
-	drawPixel := func(pattern bool) func(frame *image.Paletted, x, y, theta int) {
+	drawPixel := func(pattern, gray bool) func(frame *image.Paletted, x, y, theta int) {
+		var set func(*image.Paletted, []float64, int, int)
+		if gray {
+			set = func(frame *image.Paletted, output []float64, x, y int) {
+				frame.Set(x, y, color.Gray{
+					uint8(255 * output[0]),
+				})
+			}
+		} else {
+			set = func(frame *image.Paletted, output []float64, x, y int) {
+				frame.Set(x, y, color.RGBA{
+					uint8(255 * output[0]),
+					uint8(255 * output[1]),
+					uint8(255 * output[2]),
+					255,
+				})
+			}
+		}
+
 		if pattern {
 			return func(frame *image.Paletted, x, y, theta int) {
 				xs := math.Sin(float64(x)*density) * sharpness
@@ -225,12 +261,7 @@ func main() {
 
 				inputs := []float64{xs, ys, r, z1, z2}
 				output := cppn.FeedForward(inputs)
-				frame.Set(x, y, color.RGBA{
-					uint8(255 * output[0]),
-					uint8(255 * output[1]),
-					uint8(255 * output[2]),
-					255,
-				})
+				set(frame, output, x, y)
 			}
 		}
 		return func(frame *image.Paletted, x, y, theta int) {
@@ -243,27 +274,22 @@ func main() {
 
 			inputs := []float64{xs, ys, r, z1, z2}
 			output := cppn.FeedForward(inputs)
-			frame.Set(x, y, color.RGBA{
-				uint8(255 * output[0]),
-				uint8(255 * output[1]),
-				uint8(255 * output[2]),
-				255,
-			})
+			set(frame, output, x, y)
 		}
-	}
+	}(pattern, gray)
 
 	runtime.GOMAXPROCS(4)
 	var wg sync.WaitGroup
 
 	for theta := 0; theta < 60; theta++ {
-		frame := image.NewPaletted(image.Rect(0, 0, width, height), palette.Plan9)
+		frame := image.NewPaletted(image.Rect(0, 0, width, height), colors)
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for y := 0; y < height/2; y++ {
 				for x := 0; x < width/2; x++ {
-					drawPixel(pattern)(frame, x, y, theta)
+					drawPixel(frame, x, y, theta)
 				}
 			}
 		}()
@@ -273,7 +299,7 @@ func main() {
 			defer wg.Done()
 			for y := 0; y < height/2; y++ {
 				for x := width / 2; x < width; x++ {
-					drawPixel(pattern)(frame, x, y, theta)
+					drawPixel(frame, x, y, theta)
 				}
 			}
 		}()
@@ -283,7 +309,7 @@ func main() {
 			defer wg.Done()
 			for y := height / 2; y < height; y++ {
 				for x := 0; x < width/2; x++ {
-					drawPixel(pattern)(frame, x, y, theta)
+					drawPixel(frame, x, y, theta)
 				}
 			}
 		}()
@@ -293,7 +319,7 @@ func main() {
 			defer wg.Done()
 			for y := height / 2; y < height; y++ {
 				for x := width / 2; x < width; x++ {
-					drawPixel(pattern)(frame, x, y, theta)
+					drawPixel(frame, x, y, theta)
 				}
 			}
 		}()
@@ -303,7 +329,7 @@ func main() {
 		img.Image = append(img.Image, frame)
 		img.Delay = append(img.Delay, 0)
 
-		if theta%6 == 0 {
+		if theta%6 == 5 {
 			emoji.Printf(":sushi:")
 		}
 	}

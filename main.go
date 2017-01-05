@@ -168,10 +168,11 @@ func main() {
 	widthPtr := flag.Int("width", 500, "width of an exported image file")
 	heightPtr := flag.Int("height", 500, "height of an exported image file")
 	sharpnessPtr := flag.Float64("sharpness", 0.07, "sharpness of the image")
-	focusPtr := flag.Float64("focus", 0.7, "focus to the center of the image")
+	focusPtr := flag.Float64("focus", 1.0, "focus to the center of the image")
 	seedPtr := flag.Int64("seed", 0, "seed for random generation")
 	depthPtr := flag.Int("depth", 12, "number of hidden layers")
 	sizePtr := flag.Int("size", 24, "number of neurons in a hidden layer")
+	patternPtr := flag.Bool("pattern", false, "true if exporting a patterned image")
 
 	flag.Parse()
 
@@ -182,6 +183,7 @@ func main() {
 	seed := *seedPtr
 	depth := *depthPtr
 	size := *sizePtr
+	pattern := *patternPtr
 
 	fmt.Printf("------------+-----------------------\n")
 	fmt.Printf("File name   | %s\n", filename+".gif")
@@ -191,6 +193,7 @@ func main() {
 	fmt.Printf("Seed        | %d\n", seed)
 	fmt.Printf("Depth       | %d\n", depth)
 	fmt.Printf("Size        | %d\n", size)
+	fmt.Printf("Pattern     | %t\n", pattern)
 	fmt.Printf("------------+-----------------------\n")
 
 	rand.Seed(seed)
@@ -199,13 +202,52 @@ func main() {
 	cppn := NewCPPN(&CPPNParam{5, depth, size, 3})
 
 	fmt.Printf("\x1b[?25l")
-	fmt.Printf("Processing... [")
+	fmt.Printf("\x1b[1mProcessing... [")
 	for i := 0; i < 10; i++ {
 		emoji.Print(":fish:")
 	}
-	fmt.Printf("]\x1b[21D")
+	fmt.Printf("]\x1b[0m\x1b[21D")
 
-	runtime.GOMAXPROCS(2)
+	drawPixel := func(pattern bool) func(frame *image.Paletted, x, y, theta int) {
+		if pattern {
+			return func(frame *image.Paletted, x, y, theta int) {
+				xs := math.Sin(float64(x)) * sharpness
+				ys := math.Cos(float64(y)) * sharpness
+				r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
+					math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
+				z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
+				z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+
+				inputs := []float64{xs, ys, r, z1, z2}
+				output := cppn.FeedForward(inputs)
+				frame.Set(x, y, color.RGBA{
+					uint8(255 * output[0]),
+					uint8(255 * output[1]),
+					uint8(255 * output[2]),
+					255,
+				})
+			}
+		}
+		return func(frame *image.Paletted, x, y, theta int) {
+			xs := float64(x) * sharpness
+			ys := float64(y) * sharpness
+			r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
+				math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
+			z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
+			z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+
+			inputs := []float64{xs, ys, r, z1, z2}
+			output := cppn.FeedForward(inputs)
+			frame.Set(x, y, color.RGBA{
+				uint8(255 * output[0]),
+				uint8(255 * output[1]),
+				uint8(255 * output[2]),
+				255,
+			})
+		}
+	}
+
+	runtime.GOMAXPROCS(4)
 	var wg sync.WaitGroup
 
 	for theta := 0; theta < 60; theta++ {
@@ -215,23 +257,18 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for y := 0; y < height/2; y++ {
-				for x := 0; x < width; x++ {
-					// process inputs
-					xs := float64(x) * sharpness
-					ys := float64(y) * sharpness
-					r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
-						math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
-					z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
-					z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+				for x := 0; x < width/2; x++ {
+					drawPixel(pattern)(frame, x, y, theta)
+				}
+			}
+		}()
 
-					inputs := []float64{xs, ys, r, z1, z2}
-					output := cppn.FeedForward(inputs)
-					frame.Set(x, y, color.RGBA{
-						uint8(255 * output[0]),
-						uint8(255 * output[1]),
-						uint8(255 * output[2]),
-						255,
-					})
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for y := 0; y < height/2; y++ {
+				for x := width / 2; x < width; x++ {
+					drawPixel(pattern)(frame, x, y, theta)
 				}
 			}
 		}()
@@ -240,26 +277,22 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for y := height / 2; y < height; y++ {
-				for x := 0; x < width; x++ {
-					// process inputs
-					xs := float64(x) * sharpness
-					ys := float64(y) * sharpness
-					r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
-						math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
-					z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
-					z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
-
-					inputs := []float64{xs, ys, r, z1, z2}
-					output := cppn.FeedForward(inputs)
-					frame.Set(x, y, color.RGBA{
-						uint8(255 * output[0]),
-						uint8(255 * output[1]),
-						uint8(255 * output[2]),
-						255,
-					})
+				for x := 0; x < width/2; x++ {
+					drawPixel(pattern)(frame, x, y, theta)
 				}
 			}
 		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for y := height / 2; y < height; y++ {
+				for x := width / 2; x < width; x++ {
+					drawPixel(pattern)(frame, x, y, theta)
+				}
+			}
+		}()
+
 		wg.Wait()
 
 		img.Image = append(img.Image, frame)

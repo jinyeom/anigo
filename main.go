@@ -1,3 +1,38 @@
+/*
+
+
+anigo  Animated image generation with random CPPN
+
+@licstart   The following is the entire license notice for
+the Go code in this page.
+
+Copyright (C) 2017 jin yeom, whitewolf.studio
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+@licend    The above is the entire license notice
+for the Go code in this page.
+
+
+*/
+
 package main
 
 import (
@@ -10,6 +45,8 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/gonum/matrix/mat64"
@@ -125,7 +162,7 @@ func (c *CPPN) FeedForward(inputs []float64) []float64 {
 
 func main() {
 	fmt.Printf("\x1b[38;5;197mAnigo\x1b[0m  Animated image generator\n")
-	fmt.Printf("Copyright (c) 2017 by White Wolf Studio\n\n")
+	fmt.Printf("Copyright (c) 2017 by White Wolf Studio\n")
 
 	filenamePtr := flag.String("name", fmt.Sprintf("%d", time.Now().UnixNano()), "name of an exported image file")
 	widthPtr := flag.Int("width", 500, "width of an exported image file")
@@ -133,6 +170,8 @@ func main() {
 	sharpnessPtr := flag.Float64("sharpness", 0.07, "sharpness of the image")
 	focusPtr := flag.Float64("focus", 0.7, "focus to the center of the image")
 	seedPtr := flag.Int64("seed", 0, "seed for random generation")
+	depthPtr := flag.Int("depth", 12, "number of hidden layers")
+	sizePtr := flag.Int("size", 24, "number of neurons in a hidden layer")
 
 	flag.Parse()
 
@@ -141,56 +180,96 @@ func main() {
 	sharpness := *sharpnessPtr
 	focus := *focusPtr
 	seed := *seedPtr
+	depth := *depthPtr
+	size := *sizePtr
 
-	fmt.Printf("------------+------------------------\n")
+	fmt.Printf("------------+-----------------------\n")
 	fmt.Printf("File name   | %s\n", filename+".gif")
 	fmt.Printf("Image size  | (%d x %d)\n", width, height)
 	fmt.Printf("Sharpness   | %f\n", sharpness)
 	fmt.Printf("Focus       | %f\n", focus)
 	fmt.Printf("Seed        | %d\n", seed)
-	fmt.Printf("------------+------------------------\n")
+	fmt.Printf("Depth       | %d\n", depth)
+	fmt.Printf("Size        | %d\n", size)
+	fmt.Printf("------------+-----------------------\n")
 
 	rand.Seed(seed)
 
 	img := &gif.GIF{}
-	cppn := NewCPPN(&CPPNParam{5, 8, 16, 3})
+	cppn := NewCPPN(&CPPNParam{5, depth, size, 3})
 
-	fmt.Println("\x1b[?25l")
+	fmt.Printf("\x1b[?25l")
 	fmt.Printf("Processing... [")
 	for i := 0; i < 10; i++ {
 		emoji.Print(":fish:")
 	}
 	fmt.Printf("]\x1b[21D")
 
-	for theta := 0; theta < 360; theta += 6 {
-		frame := image.NewPaletted(image.Rect(0, 0, width, height), palette.Plan9)
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				// process inputs
-				xs := float64(x) * sharpness
-				ys := float64(y) * sharpness
-				r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
-					math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
-				z1 := math.Sin(float64(theta)) * 0.5
-				z2 := math.Cos(float64(theta)) * 0.5
+	runtime.GOMAXPROCS(2)
+	var wg sync.WaitGroup
 
-				inputs := []float64{xs, ys, r, z1, z2}
-				output := cppn.FeedForward(inputs)
-				frame.Set(x, y, color.RGBA{
-					uint8(255 * output[0]),
-					uint8(255 * output[1]),
-					uint8(255 * output[2]),
-					255,
-				})
+	for theta := 0; theta < 60; theta++ {
+		frame := image.NewPaletted(image.Rect(0, 0, width, height), palette.Plan9)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for y := 0; y < height/2; y++ {
+				for x := 0; x < width; x++ {
+					// process inputs
+					xs := float64(x) * sharpness
+					ys := float64(y) * sharpness
+					r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
+						math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
+					z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
+					z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+
+					inputs := []float64{xs, ys, r, z1, z2}
+					output := cppn.FeedForward(inputs)
+					frame.Set(x, y, color.RGBA{
+						uint8(255 * output[0]),
+						uint8(255 * output[1]),
+						uint8(255 * output[2]),
+						255,
+					})
+				}
 			}
-		}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for y := height / 2; y < height; y++ {
+				for x := 0; x < width; x++ {
+					// process inputs
+					xs := float64(x) * sharpness
+					ys := float64(y) * sharpness
+					r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
+						math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
+					z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
+					z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+
+					inputs := []float64{xs, ys, r, z1, z2}
+					output := cppn.FeedForward(inputs)
+					frame.Set(x, y, color.RGBA{
+						uint8(255 * output[0]),
+						uint8(255 * output[1]),
+						uint8(255 * output[2]),
+						255,
+					})
+				}
+			}
+		}()
+		wg.Wait()
+
 		img.Image = append(img.Image, frame)
 		img.Delay = append(img.Delay, 0)
 
-		if theta%36 == 0 {
+		if theta%6 == 0 {
 			emoji.Printf(":sushi:")
 		}
 	}
+
 	fmt.Printf("\x1b[2C")
 	emoji.Println(":beer:")
 	fmt.Printf("\x1b[?25h")

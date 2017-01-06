@@ -1,4 +1,4 @@
-# &#127843; Anigo - Looped Image Generation with a randomly genereated CPPN
+# &#127843; Anigo - Looped Image Generation with a Randomly Created CPPN
 Anigo is an application that randomly generates a fixed-topology CPPN which
 generates images in a sequence, so that they can form a loop of animated GIF.
 

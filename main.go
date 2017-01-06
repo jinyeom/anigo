@@ -165,8 +165,8 @@ func main() {
 	fmt.Printf("Copyright (c) 2017 by White Wolf Studio\n")
 
 	filenamePtr := flag.String("name", fmt.Sprintf("%d", time.Now().UnixNano()), "name of an exported image file")
-	widthPtr := flag.Int("width", 500, "width of an exported image file")
-	heightPtr := flag.Int("height", 500, "height of an exported image file")
+	widthPtr := flag.Int("width", 200, "width of an exported image file")
+	heightPtr := flag.Int("height", 200, "height of an exported image file")
 	sharpnessPtr := flag.Float64("sharpness", 0.07, "sharpness of the image")
 	focusPtr := flag.Float64("focus", 1.0, "focus to the center of the image")
 	seedPtr := flag.Int64("seed", 0, "seed for random generation")
@@ -281,48 +281,29 @@ func main() {
 	runtime.GOMAXPROCS(4)
 	var wg sync.WaitGroup
 
+	drawPart := func(frame *image.Paletted, x0, x1, y0, y1, theta int) {
+		defer wg.Done()
+		for y := y0; y < y1; y++ {
+			for x := x0; x < x1; x++ {
+				drawPixel(frame, x, y, theta)
+			}
+		}
+	}
+
 	for theta := 0; theta < 60; theta++ {
 		frame := image.NewPaletted(image.Rect(0, 0, width, height), colors)
 
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for y := 0; y < height/2; y++ {
-				for x := 0; x < width/2; x++ {
-					drawPixel(frame, x, y, theta)
-				}
-			}
-		}()
+		go drawPart(frame, 0, width/2, 0, height/2, theta)
 
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for y := 0; y < height/2; y++ {
-				for x := width / 2; x < width; x++ {
-					drawPixel(frame, x, y, theta)
-				}
-			}
-		}()
+		go drawPart(frame, width/2, width, 0, height/2, theta)
 
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for y := height / 2; y < height; y++ {
-				for x := 0; x < width/2; x++ {
-					drawPixel(frame, x, y, theta)
-				}
-			}
-		}()
+		go drawPart(frame, 0, width/2, height/2, height, theta)
 
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for y := height / 2; y < height; y++ {
-				for x := width / 2; x < width; x++ {
-					drawPixel(frame, x, y, theta)
-				}
-			}
-		}()
+		go drawPart(frame, width/2, width, height/2, height, theta)
 
 		wg.Wait()
 

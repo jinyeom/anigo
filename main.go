@@ -41,7 +41,9 @@ import (
 	"image"
 	"image/color"
 	"image/color/palette"
+	"image/draw"
 	"image/gif"
+	"image/png"
 	"math"
 	"math/rand"
 	"os"
@@ -175,6 +177,7 @@ func main() {
 	patternPtr := flag.Bool("pattern", false, "true if exporting a patterned image")
 	densityPtr := flag.Float64("density", 1.0, "density of patterns (valid only with -pattern flag)")
 	grayPtr := flag.Bool("gray", false, "true if exporting a black and white image")
+	maskPtr := flag.String("mask", "no mask", "file name of a mask to the image; file name should not be \"no mask\"")
 
 	flag.Parse()
 
@@ -188,6 +191,7 @@ func main() {
 	pattern := *patternPtr
 	density := *densityPtr
 	gray := *grayPtr
+	mask := *maskPtr
 
 	fmt.Printf("------------+-----------------------\n")
 	fmt.Printf("File name   | %s\n", filename+".gif")
@@ -202,6 +206,7 @@ func main() {
 		fmt.Printf("Density     | %f\n", density)
 	}
 	fmt.Printf("Gray        | %t\n", gray)
+	fmt.Printf("Mask        | %s\n", mask)
 	fmt.Printf("------------+-----------------------\n")
 
 	rand.Seed(seed)
@@ -313,6 +318,25 @@ func main() {
 		if theta%6 == 5 {
 			emoji.Printf(":sushi:")
 		}
+	}
+
+	for mask != "nb mask" {
+		f, err := os.Open(mask)
+		if err != nil {
+			break
+		}
+		defer f.Close()
+
+		src, err := png.Decode(f)
+		if err != nil {
+			break
+		}
+
+		for i := range img.Image {
+			b := src.Bounds()
+			draw.Draw(img.Image[i], img.Image[i].Bounds(), src, b.Min, draw.Src)
+		}
+		break
 	}
 
 	fmt.Printf("\x1b[2C")

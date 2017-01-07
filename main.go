@@ -320,6 +320,9 @@ func main() {
 		}
 	}
 
+	fmt.Printf("\x1b[2C")
+	emoji.Println(":beer:")
+
 	for mask != "nb mask" {
 		f, err := os.Open(mask)
 		if err != nil {
@@ -332,15 +335,27 @@ func main() {
 			break
 		}
 
+		fmt.Printf("\x1b[1mMasking...    [")
+		for i := 0; i < 10; i++ {
+			emoji.Print(":alien:")
+		}
+		fmt.Printf("]\x1b[0m\x1b[21D")
+
 		for i := range img.Image {
 			b := src.Bounds()
-			draw.Draw(img.Image[i], img.Image[i].Bounds(), src, b.Min, draw.Src)
+			draw.Draw(img.Image[i], img.Image[i].Bounds(), src, b.Min, draw.Over)
+
+			if i%6 == 0 {
+				emoji.Print(":robot:")
+			}
 		}
+
+		fmt.Printf("\x1b[2C")
+		emoji.Println(":earth_asia:")
+
 		break
 	}
 
-	fmt.Printf("\x1b[2C")
-	emoji.Println(":beer:")
 	fmt.Printf("\x1b[?25h")
 
 	f, err := os.OpenFile(filename+".gif", os.O_WRONLY|os.O_CREATE, 0600)

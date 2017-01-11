@@ -36,6 +36,7 @@ for the Go code in this page.
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"image"
@@ -177,7 +178,8 @@ func main() {
 	patternPtr := flag.Bool("pattern", false, "true if exporting a patterned image")
 	densityPtr := flag.Float64("density", 1.0, "density of patterns (valid only with -pattern flag)")
 	grayPtr := flag.Bool("gray", false, "true if exporting a black and white image")
-	maskPtr := flag.String("mask", "no mask", "file name of a mask to the image; file name should not be \"no mask\"")
+	maskPtr := flag.String("mask", "no mask", "file name of a mask to the image; "+
+		"file name should not be \"no mask\"; it must have the same size (width and height) as the exported image")
 
 	flag.Parse()
 
@@ -320,40 +322,52 @@ func main() {
 		}
 	}
 
+	disposal := make([]byte, 4)
+	binary.LittleEndian.PutUint32(disposal, gif.DisposalPrevious)
+	img.Disposal = disposal
+
 	fmt.Printf("\x1b[2C")
 	emoji.Println(":beer:")
 
-	for mask != "nb mask" {
-		f, err := os.Open(mask)
-		if err != nil {
-			break
-		}
-		defer f.Close()
-
-		src, err := png.Decode(f)
-		if err != nil {
-			break
-		}
-
-		fmt.Printf("\x1b[1mMasking...    [")
-		for i := 0; i < 10; i++ {
-			emoji.Print(":alien:")
-		}
-		fmt.Printf("]\x1b[0m\x1b[21D")
-
-		for i := range img.Image {
-			b := src.Bounds()
-			draw.Draw(img.Image[i], img.Image[i].Bounds(), src, b.Min, draw.Over)
-
-			if i%6 == 0 {
-				emoji.Print(":robot:")
+	if mask != "nb mask" {
+		func() {
+			f, err := os.Open(mask)
+			if err != nil {
+				return
 			}
-		}
+			defer f.Close()
 
-		fmt.Printf("\x1b[2C")
-		emoji.Println(":earth_asia:")
+			src, err := png.Decode(f)
+			if err != nil {
+				return
+			}
 
-		break
+			dx := src.Bounds().Dx()
+			dy := src.Bounds().Dy()
+			if width != dx || height != dy {
+				return
+			}
+
+			fmt.Printf("\x1b[1mMasking...    [")
+			for i := 0; i < 10; i++ {
+				emoji.Print(":fish:")
+			}
+			fmt.Printf("]\x1b[0m\x1b[21D")
+
+			for i := range img.Image {
+				b := src.Bounds()
+				draw.Draw(img.Image[i], img.Image[i].Bounds(), src, b.Min, draw.Over)
+
+				if i%6 == 0 {
+					emoji.Print(":sushi:")
+				}
+			}
+
+			fmt.Printf("\x1b[2C")
+			emoji.Println(":beer:")
+
+			return
+		}()
 	}
 
 	fmt.Printf("\x1b[?25h")

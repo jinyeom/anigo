@@ -36,7 +36,6 @@ for the Go code in this page.
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"image"
@@ -321,10 +320,6 @@ func main() {
 			emoji.Printf(":sushi:")
 		}
 	}
-
-	disposal := make([]byte, 4)
-	binary.LittleEndian.PutUint32(disposal, gif.DisposalPrevious)
-	img.Disposal = disposal
 
 	fmt.Printf("\x1b[2C")
 	emoji.Println(":beer:")

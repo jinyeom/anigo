@@ -353,7 +353,7 @@ func main() {
 				b := src.Bounds()
 				draw.Draw(img.Image[i], img.Image[i].Bounds(), src, b.Min, draw.Over)
 
-				if i%2 == 0 {
+				if i%3 == 2 {
 					emoji.Print(":sushi:")
 				}
 			}

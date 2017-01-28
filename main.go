@@ -262,8 +262,8 @@ func main() {
 				ys := math.Cos(float64(y)*density) * sharpness
 				r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
 					math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
-				z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
-				z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+				z1 := math.Cos(float64(theta) / (math.Pi * 1.5))
+				z2 := math.Sin(float64(theta) / (math.Pi * 1.5))
 
 				inputs := []float64{xs, ys, r, z1, z2}
 				output := cppn.FeedForward(inputs)
@@ -275,8 +275,8 @@ func main() {
 			ys := float64(y) * sharpness
 			r := math.Sqrt(math.Pow(float64(x-width/2), 2.0)+
 				math.Pow(float64(y-height/2), 2.0)) * sharpness * focus
-			z1 := math.Cos(float64(theta) / (math.Pi * 3.0))
-			z2 := math.Sin(float64(theta) / (math.Pi * 3.0))
+			z1 := math.Cos(float64(theta) / (math.Pi * 1.5))
+			z2 := math.Sin(float64(theta) / (math.Pi * 1.5))
 
 			inputs := []float64{xs, ys, r, z1, z2}
 			output := cppn.FeedForward(inputs)
@@ -296,7 +296,7 @@ func main() {
 		}
 	}
 
-	for theta := 0; theta < 60; theta++ {
+	for theta := 0; theta < 30; theta++ {
 		frame := image.NewPaletted(image.Rect(0, 0, width, height), colors)
 
 		wg.Add(1)
@@ -316,7 +316,7 @@ func main() {
 		img.Image = append(img.Image, frame)
 		img.Delay = append(img.Delay, 0)
 
-		if theta%6 == 5 {
+		if theta%3 == 2 {
 			emoji.Printf(":sushi:")
 		}
 	}

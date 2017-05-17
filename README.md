@@ -18,8 +18,8 @@ go install
 ```bash
 anigo -name=example -width=200 -height=200 -seed=12345 -pattern -gray
 ```
-![alt text](https://github.com/whitewolf-studio/anigo/blob/master/screenshot.png "screenshot")
+![alt text](https://github.com/jinyeom/anigo/blob/master/screenshot.png "screenshot")
 
-![alt text](https://github.com/whitewolf-studio/anigo/blob/master/example.gif "example animation")
+![alt text](https://github.com/jinyeom/anigo/blob/master/example.gif "example animation")
 
 For help, execute on a terminal, `anigo -h`.
